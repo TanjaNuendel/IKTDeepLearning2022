@@ -17,8 +17,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 main_dir = "/Users/jalell/Documents/coding/ikt450/task24/Food-11/"
 
 dirname = os.path.dirname(__file__)
-print(dirname)
-#data_path = 
+main_dir = os.path.join(dirname, ".data", "Food-11")
+#print(data_path)
 
 
 
@@ -207,5 +207,5 @@ def test():
 
 if __name__ == '__main__':
     print("main")
-    #train()
+    train()
     #test()
