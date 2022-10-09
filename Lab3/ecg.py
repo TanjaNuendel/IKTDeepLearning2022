@@ -27,8 +27,8 @@ import matplotlib.pyplot as plt
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-normal_directory = "/Users/jalell/Documents/coding/ikt450/task2_3/ecg/normal"
-abnormal_directory = "/Users/jalell/Documents/coding/ikt450/task2_3/ecg/abnormal"
+normal_directory = "Lab3\.data\normal"
+abnormal_directory = "Lab3\.data\abnormal"
 
 normal = []
 abnormal = []

@@ -195,7 +195,7 @@ if __name__=='__main__':
     #---------------Thyroid Example 1 ---------------------
     # Get the data for Thyroid example
     #train_dl, test_dl = prepare_thyroid_dataset('https://raw.githubusercontent.com/StatsGary/Data/main/thyroid_raw.csv')
-    train_dl, test_dl = prepare_dataset('shuffled_ecoli2.csv')
+    train_dl, test_dl = prepare_dataset('Lab2\.data\shuffled_ecoli2.csv')
     print(f"The length of the training set is: {len(train_dl.dataset)}")
     print(f"The length of the testing set is {len(test_dl.dataset)}\n", '-'*80)
     # Train the model
