@@ -1,10 +1,9 @@
-from pickletools import optimize
-from wsgiref import validate
-from xml.dom import ValidationErr
 import torch
 import numpy as np
 import math
+from tqdm import tqdm
 #import pandas as pd
+import random
 
 import tarfile
 
@@ -27,8 +26,12 @@ import matplotlib.pyplot as plt
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-normal_directory = "Lab3\.data\normal"
-abnormal_directory = "Lab3\.data\abnormal"
+normal_directory = "/Users/jalell/Documents/coding/ikt450/task2_3/ecg/normal"
+abnormal_directory = "/Users/jalell/Documents/coding/ikt450/task2_3/ecg/abnormal"
+
+dirname = os.path.dirname(__file__)
+normal_directory = os.path.join(dirname, ".data", "normal")
+abnormal_directory = os.path.join(dirname, ".data", "abnormal")
 
 normal = []
 abnormal = []
@@ -52,6 +55,7 @@ for filename in os.listdir(normal_directory):
                         #print(line_counter)
                     line_counter += 1
                 single_electrode_measurements.extend(padding)
+                # label 1 for "normal" data
                 single_electrode_measurements.append(int(1))
                 normal.append(single_electrode_measurements)
                 #print(len(single_electrode_measurements))
@@ -74,17 +78,22 @@ for filename in os.listdir(abnormal_directory):
                         single_electrode_measurements.append(float(line.split(" ")[-1].replace("\n", "")))
                     line_counter += 1
                 single_electrode_measurements.extend(padding)
+                # label 0 for "abnormal" data 
                 single_electrode_measurements.append(int(0))
                 abnormal.append(single_electrode_measurements)
 
-#print(len(abnormal[0]))
-
 #print(normal.extend(abnormal))
 all_data = normal + abnormal
-#print(np.asarray(all_data)[:,75])
-training = np.asarray(all_data)[:int(len(all_data)*split_ratio),0:75]
-#validation = np.asarray(all_data)[int(len(all_data)*split_ratio):,75]
-validation = np.asarray(all_data)[:int(len(all_data)*split_ratio),75]
+all_data = np.asarray(all_data)
+np.random.shuffle(all_data)
+x_training = np.asarray(all_data)[:int(len(all_data)*split_ratio),0:75]
+x_validation = np.asarray(all_data)[int(len(all_data)*split_ratio):,0:75]
+y_training = np.asarray(all_data)[:int(len(all_data)*split_ratio),75]
+y_validation = np.asarray(all_data)[int(len(all_data)*split_ratio):,75]
+
+
+#print(y_validation)
+
 
 #abnormal_training = np.asarray(abnormal)[:int(len(abnormal)*split_ratio),0:75]
 #abnormal_validation = np.asarray(abnormal)[int(len(abnormal)*split_ratio):,75]
@@ -94,32 +103,38 @@ validation = np.asarray(all_data)[:int(len(all_data)*split_ratio),75]
 
 
 class ECGDataset(Dataset):
-    def __init__(self):
+    def __init__(self, mode):
         #data
-        self.x = torch.from_numpy(training).to(torch.float32)
+        self.x = torch.from_numpy(x_training if mode=="training" else x_validation).to(torch.float32)
         #print(self.x.shape)
         #self.x = dataset[:, 0:7]
         #labels
-        self.y = torch.from_numpy(validation).to(torch.int64)
+        self.y = torch.from_numpy(y_training if mode=="training" else y_validation).to(torch.int64)
+        #print(torch.from_numpy(x_training).to(torch.float32)[0])
         #print(self.y)
         #self.y = dataset[:, [7]]
 
         # number of samples
-        self.n_samples = training.shape[0]
+        self.n_samples = x_training.shape[0] if mode=="training" else x_validation.shape[0]
 
     def __getitem__(self, index):
         #print(self.x[index])
-        return self.x[index], self.y[index]
+        return self.x[index], self.y[index].item()
 
     def __len__(self):
         return self.n_samples
 
 
-py_ecgdata = ECGDataset()
+py_ecgdata = ECGDataset("training")
+py_ecgdata_validation = ECGDataset("val")
+#print(py_ecgdata.__getitem__(0))
 
+py_ecgloader = DataLoader(dataset=py_ecgdata, batch_size=32, shuffle=True, num_workers=0)
+py_ecgloader_validation = DataLoader(dataset=py_ecgdata_validation, batch_size=32, shuffle=True, num_workers=0)
 
-py_ecgloader = DataLoader(dataset=py_ecgdata, batch_size=4, shuffle=True, num_workers=0)
-
+#dataiter = iter(py_ecgloader)
+#images, labels = dataiter.next()
+#print(labels)
 
 class ECGNet(nn.Module):
     def __init__(self, input_size, hidden1_size, hidden2_size, num_classes):
@@ -141,25 +156,86 @@ class ECGNet(nn.Module):
 
 input_size = 75
 num_classes = 2
-hidden1_size = 100
-hidden2_size = 50
-learning_rate = 0.001
-batch_size = 64
-num_epochs = 100
+hidden1_size = 256
+hidden2_size = 64
+learning_rate = 0.00001
+num_epochs = 40
 
 model = ECGNet(input_size, hidden1_size, hidden2_size, num_classes)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-for e in range(num_epochs):
-    for i, (inputs,labels) in enumerate(py_ecgloader):       
-        scores = model(inputs)
+#print(len(py_ecgloader))
 
-        loss = criterion(scores,labels)
+def train():
+    t_loss = []
+    v_loss = []
+    with tqdm(total=num_epochs) as pbar:
+        for e in range(num_epochs):
+            model.train()
+            for i, (inputs,labels) in enumerate(py_ecgloader):       
+                optimizer.zero_grad()
+                
+                scores = model(inputs)
+
+                loss = criterion(scores,labels)
+                #if(i%2000 == 0):
+                #    print(loss.item())
+                
+                
+                loss.backward()
+                optimizer.step()
+
+                #print(loss)
+            t_loss.append(loss.item())
+            pbar.update(1)
+            model.eval()
+            for i, (inputs,labels) in enumerate(py_ecgloader_validation):  
+                scores = model(inputs)
+                loss = criterion(scores,labels)
+            v_loss.append(loss.item())
+            
         
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
 
-        print(loss)
+    print("training finished")
+
+    import matplotlib.pyplot as plt
+    # Plot training & validation accuracy values
+    plt.plot(t_loss)
+    plt.plot(v_loss)
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show()
+
+
+
+x_validation = np.asarray(all_data)[int(len(all_data)*split_ratio):,0:75]
+y_validation = np.asarray(all_data)[int(len(all_data)*split_ratio):,75]
+
+class ECGTestDataset(Dataset):
+    def __init__(self):
+        #data
+        self.x = torch.from_numpy(x_validation).to(torch.float32)
+        #labels
+        self.y = torch.from_numpy(y_validation).to(torch.int64)
+        # number of samples
+        self.n_samples = x_validation.shape[0]
+
+    def __getitem__(self, index):
+        return self.x[index], self.y[index]
+
+    def __len__(self):
+        return self.n_samples
+
+py_ecgtestdata = ECGTestDataset()
+
+#py_ecgtestloader = DataLoader(dataset=py_ecgtestdata, batch_size=4, shuffle=True, num_workers=0)
+
+
+if __name__ == '__main__':
+    print("main")
+    train()
+    #test()
