@@ -3,7 +3,7 @@ import numpy
 numpy.random.seed(7)
 
 # load pima indians dataset
-dataset = numpy.loadtxt("pima-indians-diabetes.data.csv", delimiter=",")
+dataset = numpy.loadtxt("Lab1\.data\pima-indians-diabetes.data.csv", delimiter=",")
 numpy.random.shuffle(dataset)
 splitratio = 0.8
 K_neighbors = 15
