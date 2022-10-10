@@ -26,7 +26,7 @@ main_dir = os.path.join(dirname, ".data", "Food-11")
 # Hyper-parameters 
 num_epochs = 2
 batch_size = 4
-learning_rate = 0.001
+learning_rate = 0.0001
 
 # dataset has PILImage images of range [0, 1]. 
 # We transform them to Tensors of normalized range [-1, 1]
@@ -34,21 +34,6 @@ transform = transforms.Compose(
     [transforms.ToTensor(),transforms.Resize((32,32)),
      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-# CIFAR10: 60000 32x32 color images in 10 classes, with 6000 images per class
-
-'''
-train_dataset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                        download=True, transform=transform)
-
-test_dataset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                       download=True, transform=transform)
-
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size,
-                                          shuffle=True)
-
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=batch_size,
-                                         shuffle=False)
-'''
 
 class FoodDataset(Dataset):
     def __init__(self, main_dir, transform):
@@ -74,10 +59,6 @@ food_evaluation_data = FoodDataset(os.path.join(main_dir, "evaluation"), transfo
 train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=0, shuffle=True)
 test_loader = DataLoader(food_validation_data, batch_size=batch_size, num_workers=0, shuffle=True)
 
-#print(train_dataset.__len__())
-#print(train_dataset.__getitem__(1))
-#print(train_dataset.images)
-
 
 classes = ('bread', 'dairy product', 'dessert', 'egg',
            'fried food', 'meat', 'pasta', 'rice', 'seafood', 'soup', 'vegetable/fruit')
@@ -87,9 +68,6 @@ def imshow(img):
     npimg = img.numpy()
     plt.imshow(np.transpose(npimg, (1, 2, 0)))
     plt.show()
-
-
-
 
 
 
@@ -140,14 +118,14 @@ class ConvNet(nn.Module):
         #print(x)
         x = F.relu(self.fc1(x))               # -> n, 120
         x = F.relu(self.fc2(x))               # -> n, 84
-        x = self.fc3(x)                       # -> n, 10
+        x = self.fc3(x)                       # -> n, 11
         return x
 
 
 model = ConvNet().to(device)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 #print(len(train_loader))
 
 def train():
@@ -155,6 +133,7 @@ def train():
     with tqdm(total=n_total_steps) as pbar:
         for epoch in range(num_epochs):        
             for i, (images, labels) in enumerate(train_loader):
+                optimizer.zero_grad()
                 #print("training")
                 # origin shape: [4, 3, 32, 32] = 4, 3, 1024
                 # input_layer: 3 input channels, 6 output channels, 5 kernel size
@@ -168,17 +147,18 @@ def train():
                 loss = criterion(outputs, labels)
 
                 # Backward and optimize
-                optimizer.zero_grad()
+                
                 loss.backward()
                 optimizer.step()
 
-                if (i+1) % 200 == 0:
+                if (i+1) % 100 == 0:
                     print (f'Epoch [{epoch+1}/{num_epochs}], Step [{i+1}/{n_total_steps}], Loss: {loss.item():.4f}')
             #pbar.update(1)
 
     print('Finished Training')
         
 def test():
+    t_loss = []
     PATH = './cnn.pth'
     torch.save(model.state_dict(), PATH)
 
