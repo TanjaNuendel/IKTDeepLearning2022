@@ -9,6 +9,7 @@ import os
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+import natsort
 
 # Device configuration
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -23,7 +24,7 @@ main_dir = os.path.join(dirname, ".data", "Food-11")
 
 
 # Hyper-parameters 
-num_epochs = 5
+num_epochs = 2
 batch_size = 4
 learning_rate = 0.001
 
@@ -53,7 +54,8 @@ class FoodDataset(Dataset):
     def __init__(self, main_dir, transform):
         self.main_dir = main_dir
         self.transform = transform
-        self.images = os.listdir(main_dir)
+        all_imgs = os.listdir(main_dir)
+        self.images = natsort.natsorted(all_imgs)
 
     def __len__(self):
         return len(self.images)
@@ -72,8 +74,13 @@ food_evaluation_data = FoodDataset(os.path.join(main_dir, "evaluation"), transfo
 train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=0, shuffle=True)
 test_loader = DataLoader(food_validation_data, batch_size=batch_size, num_workers=0, shuffle=True)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+#print(train_dataset.__len__())
+#print(train_dataset.__getitem__(1))
+#print(train_dataset.images)
+
+
+classes = ('bread', 'dairy product', 'dessert', 'egg',
+           'fried food', 'meat', 'pasta', 'rice', 'seafood', 'soup', 'vegetable/fruit')
 
 def imshow(img):
     img = img / 2 + 0.5  # unnormalize
@@ -84,9 +91,7 @@ def imshow(img):
 
 
 
-# get some random training images
-dataiter = iter(train_loader)
-images, labels = dataiter.next()
+
 
 
 '''
@@ -103,14 +108,14 @@ x = conv2(x)
 print(x.shape)
 x = pool(x)
 print(x.shape)
+
 '''
 
-
-
-
-
-
-
+# get some random training images
+dataiter = iter(train_loader)
+images, labels = dataiter.next()
+#print(images)
+#print(labels)
 # show images
 #imshow(torchvision.utils.make_grid(images))
 #print(train_dataset.__getitem__(1))
@@ -192,11 +197,12 @@ def test():
             n_correct += (predicted == labels).sum().item()
             
             for i in range(batch_size):
-                label = labels[i]
-                pred = predicted[i]
-                if (label == pred):
-                    n_class_correct[label] += 1
-                n_class_samples[label] += 1
+                if(labels.size(dim=0) == 4):
+                    label = labels[i]
+                    pred = predicted[i]
+                    if (label == pred):
+                        n_class_correct[label] += 1
+                    n_class_samples[label] += 1
 
         acc = 100.0 * n_correct / n_samples
         print(f'Accuracy of the network: {acc} %')
